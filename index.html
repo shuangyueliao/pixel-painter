@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="description" content="Pixel Painter — a relaxing color-by-number pixel art game. Pick a color, paint the numbered cells and reveal 12 cute pictures. Free single-file HTML5 game.">
+<title>Pixel Painter · Color by Number</title>
+<script>
+// ============================================================
+// 平台 SDK 按域名守卫加载（与 game/index.html 完全相同的策略，原样移植）
+// 仅在 crazygames 域名下加载 CrazyGames SDK（含 loadingStart / loadingStop）
+// 仅在 gamedistribution / html5.gamedistribution.com / gd.games 域名下加载 GD SDK
+// 其他域名（本地开发、GitHub Pages、itch.io 等）完全不注入任何外部脚本
+// ============================================================
+(function () {
+  var host = location.hostname || "";
+  try {
+    if (host.indexOf("crazygames") !== -1) {
+      var s1 = document.createElement("script");
+      s1.src = "https://sdk.crazygames.com/crazygames-sdk-v3.js";
+      s1.onload = function () {
+        if (window.CrazyGames && window.CrazyGames.SDK) {
+          window.CrazyGames.SDK.init().then(function () {
+            try { window.CrazyGames.SDK.game.loadingStart(); } catch (e) {}
+            window.addEventListener("load", function () { try { window.CrazyGames.SDK.game.loadingStop(); } catch (e) {} });
+          }).catch(function () {});
+        }
+      };
+      document.head.appendChild(s1);
+      window.__portal = "crazygames";
+    } else if (host.indexOf("gamedistribution") !== -1 || host.indexOf("html5.gamedistribution.com") !== -1 || host.indexOf("gd.games") !== -1) {
+      var s2 = document.createElement("script");
+      s2.src = "https://sdk.gamedistribution.com/v2/main.min.js";
+      document.head.appendChild(s2);
+      window.__portal = "gamedistribution";
+    }
+  } catch (e) {}
+})();
+</script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; background:#efe6d2; font-family:-apple-system,"Segoe UI",Arial,sans-serif; }
+  #app { height:100%; display:flex; flex-direction:column; }
+  #topbar { display:flex; align-items:center; gap:8px; padding:8px 12px; background:#f6efdf; border-bottom:1px solid #e2d6ba; flex-wrap:nowrap; }
+  .chip { background:#fffdf6; border:1px solid #d8ccae; color:#6a5638; border-radius:999px; padding:6px 11px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; font-family:inherit; }
+  .chip:active { transform:scale(.96); }
+  .hidden { display:none !important; }
+  #titleBox { flex:1; min-width:0; }
+  #gtitle { font-size:17px; font-weight:800; color:#5a4526; letter-spacing:.5px; }
+  #subtitle { font-size:11px; color:#9a8a68; }
+  #paintBox { flex:1; min-width:0; display:flex; align-items:baseline; gap:8px; overflow:hidden; }
+  #picName { font-size:15px; font-weight:800; color:#5a4526; white-space:nowrap; }
+  #clock { font-size:13px; font-weight:700; color:#9a8a68; font-variant-numeric:tabular-nums; }
+  #btns { display:flex; gap:6px; }
+  #badge { margin:8px 12px 0; padding:8px 12px; text-align:center; font-size:12.5px; font-weight:700; color:#7a5a1e; background:linear-gradient(135deg,#ffedbc,#ffd98a); border:1px solid #eccd85; border-radius:12px; }
+  #stage { flex:1; position:relative; min-height:0; }
+  canvas { position:absolute; inset:0; display:block; touch-action:none; }
+  #foot { text-align:center; font-size:11px; color:#a4967a; padding:5px 4px 7px; }
+  #overlay { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(58,44,26,.55); z-index:10; }
+  #panel { background:#fdf8ec; border:1px solid #d8ccae; border-radius:18px; padding:24px 28px; text-align:center; color:#4a3a24; max-width:86vw; max-height:88vh; overflow:auto; box-shadow:0 18px 50px rgba(60,40,10,.35); }
+  #panel h2 { font-size:22px; margin-bottom:4px; }
+  #panel .pic { color:#8a7452; font-size:13px; margin-bottom:10px; }
+  #panel .stars { font-size:20px; color:#e8a33d; letter-spacing:4px; margin-bottom:8px; }
+  #panel .final { font-size:34px; font-weight:900; color:#5a4526; margin-bottom:4px; }
+  #panel .best { font-size:12px; color:#8a7452; margin-bottom:12px; }
+  #shareBox { background:#f3ecd9; border:1px dashed #d0c2a0; border-radius:10px; padding:8px 10px; font-size:12px; color:#6a5638; margin-bottom:10px; }
+  #panel .row { margin-top:14px; }
+  .btn { background:#7fa86b; color:#fff; border:none; border-radius:12px; padding:11px 22px; font-size:14px; font-weight:800; cursor:pointer; margin:2px; font-family:inherit; }
+  .btn.alt { background:#fffdf6; color:#5a4526; border:1px solid #d8ccae; }
+  .btn:active { transform:scale(.97); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header id="topbar">
+    <button id="backBtn" class="chip hidden">‹ Gallery</button>
+    <button id="againBtn" class="chip hidden">Paint Again</button>
+    <div id="titleBox">
+      <div id="gtitle">Pixel Painter</div>
+      <div id="subtitle">Color by number · relax &amp; paint</div>
+    </div>
+    <div id="paintBox" class="hidden">
+      <span id="picName">Cat</span>
+      <span id="clock">0:00</span>
+    </div>
+    <div id="btns">
+      <button id="modeBtn" class="chip hidden">Mode: Relax</button>
+      <button id="muteBtn" class="chip">Sound: On</button>
+    </div>
+  </header>
+  <div id="badge" class="hidden">Collection complete! All 12 paintings framed — amazing job, artist!</div>
+  <div id="stage"><canvas id="game"></canvas></div>
+  <footer id="foot">Pixel Painter — a free relaxing puzzle game</footer>
+</div>
+<div id="overlay">
+  <div id="panel">
+    <h2>Picture Complete!</h2>
+    <div class="pic" id="doneName">Cat</div>
+    <div class="stars" id="doneStars"></div>
+    <div class="final" id="doneTime">0:00</div>
+    <div class="best" id="doneBest"></div>
+    <div id="shareBox"></div>
+    <button class="chip" id="copyBtn">Copy share text</button>
+    <div class="row">
+      <button class="btn" id="nextBtn">Next Picture</button>
+      <button class="btn alt" id="galBtn">Gallery</button>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ==================== 12 幅程序化像素画数据 ====================
+   字符含义：'.' = 空白格（无需填色，透出纸底）；'1'-'9' = pal[n-1] 调色板颜色
+   约束（部署前已用 node 脚本校验）：rows 行数 = h；每行长度 = w；
+   每个用到的色号必须小于等于 pal.length（即每格数字都能在底部色板中找到） */
+var PICTURES = [
+  { id:"cat", name:"Cat", w:16, h:16,
+    pal:["#e8955d","#6e4a2f","#fbf3e4","#ef8fa8","#7cb98a"],
+    rows:[
+      "................",
+      "...1........1...",
+      "..141......141..",
+      ".11111....11111.",
+      ".11111111111111.",
+      ".11111111111111.",
+      ".11155111155111.",
+      ".11155111155111.",
+      ".11113344331111.",
+      ".21113322331112.",
+      ".22133333333122.",
+      ".11133333333111.",
+      ".11113333331111.",
+      ".21111111111112.",
+      "..222222222222..",
+      "................"]},
+  { id:"house", name:"House", w:16, h:16,
+    pal:["#d95d4e","#f2ddb0","#7a4f33","#8ecae6","#7fb069"],
+    rows:[
+      "................",
+      ".........33.....",
+      ".........33.....",
+      ".......1133.....",
+      ".....111111.....",
+      "....11111111....",
+      "...1111111111...",
+      "..111111111111..",
+      "...2222222222...",
+      "...2442222442...",
+      "...2442332442...",
+      "...2442332442...",
+      "...2222332222...",
+      "...2222332222...",
+      "...2222332222...",
+      "..555555555555.."]},
+  { id:"tree", name:"Apple Tree", w:16, h:16,
+    pal:["#5f9e54","#8b5a2b","#e05656","#8cc46a"],
+    rows:[
+      "................",
+      ".....111111.....",
+      "...1111111111...",
+      "..111111111111..",
+      ".11131111113111.",
+      ".11111111111111.",
+      ".11311111111131.",
+      "..111111111111..",
+      "...1111111111...",
+      ".....111111.....",
+      "......2222......",
+      "......2222......",
+      "......2222......",
+      "......2222......",
+      "......2222......",
+      "..444444444444.."]},
+  { id:"heart", name:"Heart", w:16, h:16,
+    pal:["#e5534b","#ffd9e0","#c23b3b"],
+    rows:[
+      "................",
+      "................",
+      "...11......11...",
+      "..21111..11111..",
+      ".21111111111111.",
+      ".11111111111111.",
+      ".11111111111111.",
+      ".11111111111111.",
+      "..111111111111..",
+      "...1111111133...",
+      "....11111133....",
+      ".....111333.....",
+      "......1133......",
+      ".......13.......",
+      "................",
+      "................"]},
+  { id:"flower", name:"Flower", w:16, h:16,
+    pal:["#ef7fa8","#f7d046","#4e8d3f","#79b45d"],
+    rows:[
+      "................",
+      "................",
+      "......1111......",
+      "......1111......",
+      "......1111......",
+      "..111122221111..",
+      "..111122221111..",
+      "..111122221111..",
+      "..111122221111..",
+      "..111122221111..",
+      "......1111......",
+      "......1111......",
+      "......1111......",
+      "....44433444....",
+      ".....443344.....",
+      ".......33......."]},
+  { id:"sun", name:"Sunny Sun", w:16, h:16,
+    pal:["#f7c948","#f2a03d","#8a5a2b"],
+    rows:[
+      ".......22.......",
+      ".22....22....22.",
+      ".......22.......",
+      ".....111111.....",
+      "....11111111....",
+      "...1111111111...",
+      "...1133113311...",
+      "22.1133113311.22",
+      "...1111111111...",
+      "...1113333111...",
+      "...1111111111...",
+      "....11111111....",
+      ".....111111.....",
+      ".......22.......",
+      ".22....22....22.",
+      ".......22......."]},
+  { id:"mushroom", name:"Mushroom", w:16, h:16,
+    pal:["#d9534f","#fbf3e4","#f0dfc0","#7fb069"],
+    rows:[
+      "................",
+      ".....111111.....",
+      "...1111111111...",
+      "..111221112211..",
+      ".12211112211111.",
+      ".11111111221111.",
+      ".11111111111111.",
+      "..111111111111..",
+      "....33333333....",
+      "....33333333....",
+      "....33333333....",
+      "....33333333....",
+      "....33333333....",
+      "....33333333....",
+      "..444444444444..",
+      "................"]},
+  { id:"boat", name:"Little Boat", w:16, h:16,
+    pal:["#a06a3a","#f2ead8","#d95d4e","#6aaed6","#5c4327"],
+    rows:[
+      "................",
+      ".......5........",
+      ".......52.......",
+      ".......522......",
+      "....3335222.....",
+      "...333352222....",
+      "..33333522222...",
+      "..33333522222...",
+      ".3333335222222..",
+      ".......5........",
+      "..111111111111..",
+      "..111111111111..",
+      "...1111111111...",
+      "..4....4....4...",
+      ".4444444444444..",
+      "4444444444444444"]},
+  { id:"crab", name:"Crab", w:16, h:16,
+    pal:["#e05656","#fdf6e3","#3a2a2a"],
+    rows:[
+      "................",
+      "................",
+      ".11..........11.",
+      "1111........1111",
+      ".111..1..1..111.",
+      "..112211112211..",
+      ".11133111133111.",
+      ".11111111111111.",
+      ".11111133111111.",
+      "..111111111111..",
+      ".11.11111111.11.",
+      "..1..111111..1..",
+      "................",
+      "................",
+      "................",
+      "................"]},
+  { id:"cactus", name:"Cactus", w:16, h:16,
+    pal:["#5a9e4b","#336840","#e86a92","#c9784a"],
+    rows:[
+      ".......33.......",
+      "......3333......",
+      ".......33.......",
+      "......1111......",
+      "......1211......",
+      "...1..1111..1...",
+      "...1..1111..1...",
+      "...1..1111..1...",
+      "...1111111111...",
+      "......1121......",
+      "......1111......",
+      "......1111......",
+      "....44444444....",
+      ".....444444.....",
+      ".....444444.....",
+      "................"]},
+  { id:"rocket", name:"Rocket", w:24, h:24,
+    pal:["#f0ece0","#d95d4e","#8ecae6","#f28c3b","#f7d046"],
+    rows:[
+      "...........22...........",
+      "..........2222..........",
+      ".........222222.........",
+      ".........222222.........",
+      "........22222222........",
+      "........22222222........",
+      ".......1111111111.......",
+      ".......1111111111.......",
+      ".......1133333311.......",
+      ".......1133333311.......",
+      ".......1133333311.......",
+      ".......1111111111.......",
+      ".......1111111111.......",
+      ".....22111111111122.....",
+      ".....22111111111122.....",
+      "....22211111111111222...",
+      "...22....111111....22...",
+      ".........111111.........",
+      "........44444444........",
+      ".........455554.........",
+      ".........455554.........",
+      "..........4554..........",
+      "..........4554..........",
+      "...........44..........."]},
+  { id:"snowman", name:"Snowman", w:24, h:24,
+    pal:["#e8f2fa","#d95d4e","#f28c3b","#3a4a5a"],
+    rows:[
+      ".........444444.........",
+      ".........444444.........",
+      ".........444444.........",
+      ".......4444444444.......",
+      "........11111111........",
+      ".......1111111111.......",
+      ".......1144114411.......",
+      ".......1111133311.......",
+      ".......1111111111.......",
+      ".......1111111111.......",
+      "......222222222222......",
+      "......1111111111221.....",
+      ".....11111111112211.....",
+      ".....11111111111111.....",
+      ".....11111144111111.....",
+      ".....11111111111111.....",
+      ".....11111144111111.....",
+      ".....11111111111111.....",
+      "...111111111111111111...",
+      "...111111111111111111...",
+      "...111111111111111111...",
+      "...111111111111111111...",
+      "....1111111111111111....",
+      "......111111111111......"]}
+];
+
+/* ==================== 存档（localStorage，全部 try/catch 包裹） ====================
+   结构：{ muted, mode, pics:{ [id]: { f:[每格已填色号,0=未填], t:已用时秒, d:是否完成, b:最佳时间 } } }
+   半成品进度（f 数组 + 累计时间）随每次填色自动保存，可随时续玩 */
+var STORE_KEY = "pixel_painter_v1";
+var store = { muted:false, mode:"relax", pics:{} };
+function loadStore(){
+  try {
+    var raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return;
+    var s = JSON.parse(raw);
+    if (!s || typeof s !== "object") return;
+    store.muted = !!s.muted;
+    store.mode = s.mode === "strict" ? "strict" : "relax";
+    if (s.pics) for (var k in s.pics) if (s.pics[k]) store.pics[k] = s.pics[k];
+  } catch (e) {}
+}
+function saveStore(){
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch (e) {}
+}
+var savePending = false;
+function queueSave(){ // 填色高频操作走 400ms 防抖
+  if (savePending) return;
+  savePending = true;
+  setTimeout(function(){ savePending = false; saveStore(); }, 400);
+}
+
+/* ==================== WebAudio 音效（合成，无外部资源） ==================== */
+var actx = null;
+function resumeAudio(){
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+  } catch (e) {}
+}
+function beep(freq, dur, type, gainv, delay){
+  if (store.muted) return;
+  try {
+    if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === "suspended") actx.resume();
+    var t0 = actx.currentTime + (delay || 0);
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || "sine"; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.linearRampToValueAtTime(gainv || 0.1, t0 + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.02);
+  } catch (e) {}
+}
+function chord(){ // 完成琶音 C5-E5-G5-C6
+  var notes = [523.25, 659.25, 783.99, 1046.5];
+  for (var i = 0; i < notes.length; i++) beep(notes[i], 0.22, "triangle", 0.1, i * 0.11);
+}
+
+/* ==================== 画布与自适应布局 ==================== */
+var stage = document.getElementById("stage");
+var canvas = document.getElementById("game");
+var ctx = canvas.getContext("2d");
+var dpr = 1, W = 480, H = 700;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = stage.clientWidth || 480;
+  H = stage.clientHeight || 700;
+  canvas.width = Math.max(1, Math.round(W * dpr));
+  canvas.height = Math.max(1, Math.round(H * dpr));
+  canvas.style.width = W + "px";
+  canvas.style.height = H + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", resize);
+
+/* 程序化纸纹底图（一次性预渲染 160×160 噪点 + 纤维，平铺使用） */
+var paper = null, paperPat = null;
+function makePaper(){
+  paper = document.createElement("canvas");
+  paper.width = 160; paper.height = 160;
+  var p = paper.getContext("2d");
+  p.fillStyle = "#f7f1e3"; p.fillRect(0, 0, 160, 160);
+  for (var i = 0; i < 340; i++) {
+    p.fillStyle = "rgba(160,140,100," + (0.02 + Math.random() * 0.05).toFixed(3) + ")";
+    p.fillRect(Math.random() * 160, Math.random() * 160, Math.random() < 0.8 ? 1 : 2, Math.random() < 0.8 ? 1 : 2);
+  }
+  for (var j = 0; j < 26; j++) {
+    p.strokeStyle = "rgba(150,130,95,0.045)";
+    p.beginPath();
+    var fx = Math.random() * 160, fy = Math.random() * 160;
+    p.moveTo(fx, fy);
+    p.lineTo(fx + (Math.random() * 14 - 7), fy + (Math.random() * 8 - 4));
+    p.stroke();
+  }
+}
+function paperBg(){
+  if (paperPat) { ctx.fillStyle = paperPat; ctx.fillRect(0, 0, W, H); }
+  else { ctx.fillStyle = "#f7f1e3"; ctx.fillRect(0, 0, W, H); }
+}
+
+/* ==================== 小工具 ==================== */
+function shade(hex, f){ // f<0 变暗 f>0 变亮
+  var n = parseInt(hex.slice(1), 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  if (f < 0) { r = Math.round(r * (1 + f)); g = Math.round(g * (1 + f)); b = Math.round(b * (1 + f)); }
+  else { r = Math.round(r + (255 - r) * f); g = Math.round(g + (255 - g) * f); b = Math.round(b + (255 - b) * f); }
+  return "rgb(" + r + "," + g + "," + b + ")";
+}
+function lum(hex){
+  var n = parseInt(hex.slice(1), 16);
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
+}
+function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+function fmt(t){
+  t = Math.max(0, Math.floor(t));
+  var m = (t / 60) | 0, s = t % 60;
+  return m + ":" + (s < 10 ? "0" : "") + s;
+}
+function roundRect(c, x, y, w, h, rad){
+  rad = Math.min(rad, w / 2, h / 2);
+  c.beginPath();
+  c.moveTo(x + rad, y);
+  c.arcTo(x + w, y, x + w, y + h, rad);
+  c.arcTo(x + w, y + h, x, y + h, rad);
+  c.arcTo(x, y + h, x, y, rad);
+  c.arcTo(x, y, x + w, y, rad);
+  c.closePath();
+}
+
+/* ==================== 游戏状态 ==================== */
+var view = "gallery";        // gallery | paint
+var cur = -1, P = null;      // 当前画索引 / 对象
+var need = null, fill = null;// need[i]:该格应填色号(0=空白格) fill[i]:已填色号(0=未填)
+var totalNeed = 0, remaining = 0;
+var elapsed = 0, errors = 0, selColor = 1, playing = false;
+var viewMode = false;        // 已完成画的"欣赏模式"
+var revealT = -1;            // 完成展示动画进度（-1=未触发）
+var doneInfo = null, shareText = "";
+var gridRect = null, cards = [];
+var swatchList = [], swatchPos = [], swatchScale = [];
+var ripples = [], popMap = {}, shakes = {}, confetti = [];
+var streak = 0, lastFillT = -9, saveAccum = 0;
+var prog = {};               // 画廊卡片进度缓存 id->{total,filled}
+
+function completedCount(){
+  var n = 0;
+  for (var i = 0; i < PICTURES.length; i++) {
+    var st = store.pics[PICTURES[i].id];
+    if (st && st.d) n++;
+  }
+  return n;
+}
+function allDone(){ return completedCount() === PICTURES.length; }
+function refreshProg(){
+  for (var i = 0; i < PICTURES.length; i++) {
+    var pic = PICTURES[i], st = store.pics[pic.id];
+    var total = 0, filled = 0;
+    for (var r = 0; r < pic.h; r++) for (var c = 0; c < pic.w; c++) {
+      var ch = pic.rows[r].charAt(c);
+      if (ch === ".") continue;
+      total++;
+      if (st && st.f && st.f[r * pic.w + c] > 0) filled++;
+    }
+    prog[pic.id] = { total: total, filled: filled };
+  }
+}
+function nextUndone(from){
+  for (var k = 1; k <= PICTURES.length; k++) {
+    var i = (from + k) % PICTURES.length;
+    var st = store.pics[PICTURES[i].id];
+    if (!st || !st.d) return i;
+  }
+  return -1;
+}
+
+/* ==================== 平台埋点（gameplayStart/Stop，域名守卫在 loader 中） ==================== */
+function startGameplay(){
+  if (playing) return;
+  playing = true;
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStart();
+    }
+  } catch (e) {}
+}
+function stopGameplay(){
+  if (!playing) return;
+  playing = false;
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.gameplayStop();
+    }
+  } catch (e) {}
+}
+
+/* ==================== 流程 ==================== */
+function openPicture(i, forcePaint){
+  cur = i;
+  P = PICTURES[i];
+  need = []; 
+  for (var r = 0; r < P.h; r++) for (var c = 0; c < P.w; c++) {
+    var ch = P.rows[r].charAt(c);
+    need.push(ch === "." ? 0 : parseInt(ch, 10));
+  }
+  var st = store.pics[P.id];
+  if (!st) { st = { f: [], t: 0, d: false, b: 0 }; store.pics[P.id] = st; }
+  totalNeed = 0;
+  for (var q = 0; q < need.length; q++) if (need[q] > 0) totalNeed++;
+  fill = [];
+  viewMode = false;
+  if (st.d && !forcePaint) {
+    // 欣赏模式：整幅已填好，带相框静态展示
+    viewMode = true;
+    for (var m = 0; m < need.length; m++) fill.push(need[m]);
+    remaining = 0;
+  } else {
+    // 续玩：恢复半成品进度与累计用时
+    for (var m2 = 0; m2 < need.length; m2++) {
+      var fv = (st.f && st.f[m2]) ? st.f[m2] : 0;
+      if (need[m2] === 0) fv = 0;
+      fill.push(fv);
+    }
+    remaining = 0;
+    for (var q2 = 0; q2 < need.length; q2++) if (need[q2] > 0 && !fill[q2]) remaining++;
+  }
+  elapsed = st.t || 0;
+  errors = 0;
+  ripples = []; popMap = {}; shakes = {}; confetti = [];
+  revealT = -1; doneInfo = null;
+  // 色板 = 本画用到的色号（升序）
+  var used = {};
+  for (var u = 0; u < need.length; u++) if (need[u] > 0) used[need[u]] = true;
+  swatchList = [];
+  for (var n = 1; n <= 9; n++) if (used[n]) swatchList.push(n);
+  selColor = swatchList[0] || 1;
+  swatchScale = [];
+  view = "paint";
+  updateHeader();
+  startGameplay();
+}
+function backToGallery(){
+  if (view !== "paint") return;
+  if (P && store.pics[P.id]) { store.pics[P.id].t = elapsed; }
+  saveStore();
+  stopGameplay();
+  view = "gallery"; P = null; cur = -1;
+  ripples = []; popMap = {}; shakes = {}; confetti = [];
+  refreshProg();
+  updateHeader();
+}
+function paintAgain(){
+  if (view !== "paint" || cur < 0) return;
+  var st = store.pics[P.id];
+  st.f = []; st.t = 0;
+  saveStore();
+  openPicture(cur, true); // 重置后重新填色（最佳时间保留，可再刷新）
+}
+
+/* ==================== 填色核心 ==================== */
+function palColor(n){ return P.pal[n - 1] || "#cccccc"; }
+function fillAt(idx){
+  if (view !== "paint" || revealT >= 0 || viewMode) return;
+  if (idx < 0 || idx >= need.length) return;
+  if (need[idx] === 0) return;      // 空白格不填
+  if (fill[idx]) return;            // 已填过：拖动去重，绝不重复计
+  if (need[idx] === selColor) {
+    fill[idx] = selColor;
+    remaining--;
+    popMap[idx] = 0;
+    ripples.push({ i: idx, t: 0, c: palColor(selColor) });
+    streak = (tNow - lastFillT < 1.2) ? Math.min(streak + 1, 10) : 0;
+    lastFillT = tNow;
+    beep(520 * Math.pow(2, streak / 12), 0.07, "triangle", 0.09);
+    var st = store.pics[P.id];
+    if (st) { st.f[idx] = selColor; st.t = elapsed; }
+    queueSave();
+    if (remaining === 0) completePicture();
+  } else {
+    // 填错色：抖动 + 不上色；严格模式额外计错误（完成时按 3-errors 折算星级）
+    shakes[idx] = 0.35;
+    beep(150, 0.12, "square", 0.06);
+    if (store.mode === "strict") errors++;
+  }
+}
+function completePicture(){
+  var st = store.pics[P.id];
+  st.d = true;
+  st.f = fill.slice();
+  st.t = elapsed;
+  var nb = false;
+  if (!st.b || elapsed < st.b) { st.b = elapsed; nb = true; }
+  saveStore();
+  stopGameplay();
+  try {
+    if (window.__portal === "crazygames" && window.CrazyGames && window.CrazyGames.SDK) {
+      window.CrazyGames.SDK.game.happytime();
+    }
+  } catch (e) {}
+  chord();
+  spawnConfetti();
+  revealT = 0;
+  doneInfo = { t: elapsed, newBest: nb };
+  refreshProg();
+  setTimeout(showDonePanel, 1500);
+}
+function showDonePanel(){
+  if (view !== "paint" || !doneInfo) return;
+  document.getElementById("doneName").textContent = PICTURES[cur].name;
+  var stars = "";
+  if (store.mode === "strict") {
+    var s = Math.max(1, Math.min(3, 3 - errors));
+    stars = "★★★".slice(0, s) + "☆☆☆".slice(0, 3 - s);
+  }
+  var se = document.getElementById("doneStars");
+  se.textContent = stars;
+  se.style.display = stars ? "block" : "none";
+  document.getElementById("doneTime").textContent = fmt(doneInfo.t);
+  var b = store.pics[PICTURES[cur].id] ? store.pics[PICTURES[cur].id].b : 0;
+  document.getElementById("doneBest").textContent = doneInfo.newBest ? "New best time!" : "Best time " + fmt(b);
+  shareText = 'I painted "' + PICTURES[cur].name + '" in ' + fmt(doneInfo.t) + " in Pixel Painter!";
+  document.getElementById("shareBox").textContent = shareText;
+  overlayEl.style.display = "flex";
+}
+function goNext(){
+  overlayEl.style.display = "none";
+  doneInfo = null;
+  var n = nextUndone(Math.max(0, cur));
+  if (n >= 0) openPicture(n);
+  else backToGallery();
+}
+
+/* ==================== 彩带 ==================== */
+function spawnConfetti(){
+  var cols = ["#e05656", "#f2a03d", "#f7d046", "#7fb069", "#6aaed6", "#b98bda", "#ef7fa8"];
+  var ox = (view === "paint" && gridRect) ? gridRect.x + gridRect.w / 2 : W / 2;
+  var oy = (view === "paint" && gridRect) ? gridRect.y + gridRect.h / 2 : H * 0.35;
+  for (var i = 0; i < 90; i++) {
+    confetti.push({
+      x: ox + (Math.random() - 0.5) * 80, y: oy,
+      vx: (Math.random() - 0.5) * 280, vy: -150 - Math.random() * 210,
+      rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 10,
+      c: cols[(Math.random() * cols.length) | 0],
+      life: 1.6 + Math.random() * 0.8,
+      size: 3 + Math.random() * 4
+    });
+  }
+}
+function drawConfetti(dt){
+  for (var i = confetti.length - 1; i >= 0; i--) {
+    var p = confetti[i];
+    p.life -= dt;
+    if (p.life <= 0) { confetti.splice(i, 1); continue; }
+    p.vy += 420 * dt;
+    p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+    ctx.save();
+    ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+    ctx.globalAlpha = Math.min(1, p.life);
+    ctx.fillStyle = p.c;
+    ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.62);
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ==================== 布局 ==================== */
+function layoutPaint(){
+  var padTop = 12, padSide = 14, palH = viewMode ? 46 : (H < 430 ? 70 : 88); // 矮屏（横屏手机）压缩色板区高度
+  var availW = W - padSide * 2;
+  var availH = H - padTop - palH - 12;
+  var cell = Math.min(availW / P.w, availH / P.h, 34);
+  cell = Math.max(6, Math.floor(cell));
+  var gw = cell * P.w, gh = cell * P.h;
+  gridRect = { x: Math.round((W - gw) / 2), y: Math.round(padTop + Math.max(0, (availH - gh) / 2)), cell: cell, w: gw, h: gh };
+  swatchPos = [];
+  if (viewMode) return;
+  var n = swatchList.length;
+  if (!n) return;
+  var spacing = Math.min(58, (W - 24) / n);
+  var startX = W / 2 - spacing * (n - 1) / 2;
+  var sy = H - palH / 2 - 4;
+  var r = Math.min(19, spacing * 0.38);
+  for (var i = 0; i < n; i++) swatchPos.push({ n: swatchList[i], x: startX + i * spacing, y: sy, r: r });
+  if (swatchScale.length !== n) { swatchScale = []; for (var s = 0; s < n; s++) swatchScale.push(1); }
+}
+function layoutGallery(){
+  cards = [];
+  var gap = 10, top = 10, side = 12, bottom = 12, labelH = 30;
+  var availW = W - side * 2, availH = H - top - bottom;
+  var cw = Math.min((availW - gap * 2) / 3, ((availH - gap * 3) / 4 - labelH) / 0.92);
+  cw = Math.floor(Math.max(56, cw));
+  var ch = Math.floor(cw * 0.92 + labelH);
+  var gw = cw * 3 + gap * 2, gh = ch * 4 + gap * 3;
+  var ox = (W - gw) / 2, oy = top + Math.max(0, (availH - gh) / 2);
+  for (var i = 0; i < PICTURES.length; i++) {
+    var col = i % 3, row = (i / 3) | 0;
+    cards.push({ x: ox + col * (cw + gap), y: oy + row * (ch + gap), w: cw, h: ch });
+  }
+}
+
+/* ==================== 渲染：填色页 ==================== */
+function drawCell(x, y, cell, fillV, needV, idx, k, ga){
+  var basePad = Math.max(0.5, cell * 0.05);
+  var pad = basePad * (1 - k);
+  var rx = x + pad, ry = y + pad, rw = cell - pad * 2, rh = cell - pad * 2;
+  var rad = Math.min(3, cell * 0.16);
+  var inf = 0;
+  if (popMap[idx] !== undefined) {
+    var t = popMap[idx];
+    inf = Math.sin(Math.min(1, t) * Math.PI) * cell * 0.14;
+  }
+  var sx = 0;
+  if (shakes[idx] > 0) sx = Math.sin(shakes[idx] * 45) * cell * 0.12;
+  if (fillV) {
+    ctx.fillStyle = palColor(fillV);
+    roundRect(ctx, rx - inf + sx, ry - inf, rw + inf * 2, rh + inf * 2, rad);
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(60,40,20,.12)";
+    ctx.stroke();
+  } else if (needV) {
+    ctx.fillStyle = "#fffdf7";
+    roundRect(ctx, rx + sx, ry, rw, rh, rad);
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "rgba(120,100,70,.25)";
+    ctx.stroke();
+    if (k < 0.2) {
+      ctx.fillStyle = shade(P.pal[needV - 1] || "#888888", -0.42);
+      ctx.font = "600 " + Math.max(8, Math.round(cell * 0.46)) + "px -apple-system,Arial,sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(needV), x + cell / 2 + sx, y + cell / 2 + 0.5);
+    }
+  }
+}
+function drawFrame(x, y, w, h, a){
+  ctx.globalAlpha = a;
+  ctx.fillStyle = "#fffdf6";
+  roundRect(ctx, x - 14, y - 14, w + 28, h + 28, 10); ctx.fill();
+  ctx.lineWidth = 7; ctx.strokeStyle = "#b98b5a";
+  roundRect(ctx, x - 14, y - 14, w + 28, h + 28, 10); ctx.stroke();
+  ctx.lineWidth = 1; ctx.strokeStyle = "rgba(90,60,30,.35)";
+  roundRect(ctx, x - 7, y - 7, w + 14, h + 14, 6); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.globalAlpha = 1;
+}
+function drawPaint(dt){
+  layoutPaint();
+  paperBg();
+  // 网格背板
+  ctx.fillStyle = "rgba(255,255,255,.4)";
+  roundRect(ctx, gridRect.x - 8, gridRect.y - 8, gridRect.w + 16, gridRect.h + 16, 10); ctx.fill();
+  // 完成展示：缝隙收拢 + 渐显 + 轻微放大 + 相框
+  var k = 0, ga = 1;
+  if (revealT >= 0) {
+    revealT = Math.min(1, revealT + dt / 1.5);
+    k = easeOutCubic(Math.min(1, revealT / 0.8));
+    ga = 0.55 + 0.45 * k;
+  } else if (viewMode) { k = 1; ga = 1; }
+  var cx = gridRect.x + gridRect.w / 2, cy = gridRect.y + gridRect.h / 2;
+  ctx.save();
+  if (k > 0) { ctx.translate(cx, cy); ctx.scale(1 + 0.07 * k, 1 + 0.07 * k); ctx.translate(-cx, -cy); }
+  if (k > 0.5) drawFrame(gridRect.x, gridRect.y, gridRect.w, gridRect.h, Math.min(1, (k - 0.5) / 0.5));
+  ctx.globalAlpha = ga;
+  var cell = gridRect.cell;
+  for (var r = 0; r < P.h; r++) for (var c = 0; c < P.w; c++) {
+    var idx = r * P.w + c;
+    if (!need[idx] && !fill[idx]) continue;
+    if (shakes[idx] > 0) shakes[idx] -= dt;
+    if (popMap[idx] !== undefined) { popMap[idx] += dt * 5; if (popMap[idx] >= 1) delete popMap[idx]; }
+    drawCell(gridRect.x + c * cell, gridRect.y + r * cell, cell, fill[idx], need[idx], idx, k, ga);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+  // 填色波纹
+  for (var i = ripples.length - 1; i >= 0; i--) {
+    var rp = ripples[i];
+    rp.t += dt * 2.2;
+    if (rp.t >= 1) { ripples.splice(i, 1); continue; }
+    var rx2 = gridRect.x + (rp.i % P.w) * cell + cell / 2;
+    var ry2 = gridRect.y + ((rp.i / P.w) | 0) * cell + cell / 2;
+    ctx.globalAlpha = (1 - rp.t) * 0.55;
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = rp.c;
+    ctx.beginPath();
+    ctx.arc(rx2, ry2, cell * (0.3 + rp.t * 0.95), 0, 6.2832);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+  // 提示 / 状态文字
+  ctx.font = "600 12px -apple-system,Arial,sans-serif";
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  var ty = Math.min(gridRect.y + gridRect.h + 14, H - 100);
+  if (viewMode) {
+    var b = store.pics[P.id] ? store.pics[P.id].b : 0;
+    ctx.fillStyle = "rgba(110,90,60,.85)";
+    ctx.fillText("Completed — best time " + fmt(b), W / 2, ty);
+  } else if (revealT < 0) {
+    ctx.fillStyle = "rgba(110,90,60,.75)";
+    var msg = (remaining === totalNeed) ? "Pick a color below, then tap or drag over the matching numbers" : (remaining + " cells left");
+    ctx.fillText(msg, W / 2, ty);
+    // 底部色板（选中放大动画）
+    for (var s2 = 0; s2 < swatchPos.length; s2++) {
+      var sp = swatchPos[s2];
+      var target = (sp.n === selColor) ? 1.35 : 1;
+      swatchScale[s2] += (target - swatchScale[s2]) * Math.min(1, dt * 14);
+      var rr = sp.r * swatchScale[s2];
+      ctx.beginPath(); ctx.arc(sp.x, sp.y, rr, 0, 6.2832);
+      ctx.fillStyle = palColor(sp.n); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = "rgba(90,60,30,.35)"; ctx.stroke();
+      if (sp.n === selColor) {
+        ctx.beginPath(); ctx.arc(sp.x, sp.y, rr + 3.5, 0, 6.2832);
+        ctx.lineWidth = 2; ctx.strokeStyle = "#5a4526"; ctx.stroke();
+      }
+      ctx.fillStyle = lum(P.pal[sp.n - 1]) > 0.62 ? "rgba(40,30,15,.8)" : "rgba(255,255,255,.92)";
+      ctx.font = "700 " + Math.max(9, Math.round(rr * 0.9)) + "px -apple-system,Arial,sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(sp.n), sp.x, sp.y + 0.5);
+      ctx.font = "600 12px -apple-system,Arial,sans-serif";
+    }
+  }
+  // 计时（纯解压：只在填色进行时累计，无任何失败压力）
+  if (revealT < 0 && !viewMode) {
+    elapsed += dt;
+    if (store.pics[P.id]) store.pics[P.id].t = elapsed;
+    saveAccum += dt;
+    if (saveAccum > 5) { saveAccum = 0; saveStore(); }
+    updateClock();
+  }
+  drawConfetti(dt);
+}
+
+/* ==================== 渲染：画廊 ==================== */
+function drawCard(i){
+  var pic = PICTURES[i], st = store.pics[pic.id], c = cards[i];
+  ctx.fillStyle = "rgba(255,253,247,.92)";
+  roundRect(ctx, c.x, c.y, c.w, c.h, 12); ctx.fill();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = "rgba(120,100,70,.22)";
+  ctx.stroke();
+  // 迷你图（未完成 = 剪影，完成后 = 全彩 + 相框）
+  var ma = { x: c.x + 8, y: c.y + 8, w: c.w - 16, h: c.h - 38 };
+  var mc = Math.min(ma.w / pic.w, ma.h / pic.h);
+  var mx = ma.x + (ma.w - mc * pic.w) / 2, my = ma.y + (ma.h - mc * pic.h) / 2;
+  var done = st && st.d;
+  for (var r = 0; r < pic.h; r++) for (var cc = 0; cc < pic.w; cc++) {
+    var ch = pic.rows[r].charAt(cc);
+    if (ch === ".") continue;
+    var v = parseInt(ch, 10);
+    ctx.fillStyle = done ? pic.pal[v - 1] : "#cfc3ab";
+    ctx.fillRect(mx + cc * mc, my + r * mc, mc + 0.5, mc + 0.5);
+  }
+  if (done) {
+    ctx.lineWidth = 2; ctx.strokeStyle = "#b98b5a";
+    roundRect(ctx, mx - 3, my - 3, mc * pic.w + 6, mc * pic.h + 6, 3); ctx.stroke();
+    ctx.lineWidth = 1;
+  }
+  // 名称 + 进度/最佳
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillStyle = "#5c4a33";
+  ctx.font = "700 12px -apple-system,Arial,sans-serif";
+  ctx.fillText(pic.name, c.x + c.w / 2, c.y + c.h - (done ? 19 : 21));
+  if (done) {
+    ctx.fillStyle = "#8a7452";
+    ctx.font = "600 10.5px -apple-system,Arial,sans-serif";
+    ctx.fillText("Best " + fmt(st.b), c.x + c.w / 2, c.y + c.h - 7);
+  } else {
+    var p = prog[pic.id] || { total: 1, filled: 0 };
+    var pct = p.total ? p.filled / p.total : 0;
+    var bx = c.x + 14, bw = c.w - 28, by = c.y + c.h - 8;
+    ctx.fillStyle = "rgba(120,100,70,.18)";
+    roundRect(ctx, bx, by - 3, bw, 4, 2); ctx.fill();
+    if (pct > 0) {
+      ctx.fillStyle = "#8fbf6f";
+      roundRect(ctx, bx, by - 3, Math.max(3, bw * pct), 4, 2); ctx.fill();
+    }
+  }
+}
+function drawGallery(dt){
+  layoutGallery();
+  paperBg();
+  for (var i = 0; i < PICTURES.length; i++) drawCard(i);
+  drawConfetti(dt);
+}
+
+/* ==================== 主循环 ==================== */
+var tNow = 0, lastT = 0, lastClockStr = "";
+function updateClock(){
+  var s = fmt(elapsed);
+  if (s !== lastClockStr) { lastClockStr = s; clockEl.textContent = s; }
+}
+function frame(t){
+  var dt = lastT ? Math.min((t - lastT) / 1000, 0.05) : 0.016;
+  lastT = t; tNow += dt;
+  if (view === "gallery") drawGallery(dt); else drawPaint(dt);
+  requestAnimationFrame(frame);
+}
+
+/* ==================== 输入（触控 + 鼠标双通道，触控 preventDefault） ==================== */
+function canvasPos(clientX, clientY){
+  var r = canvas.getBoundingClientRect();
+  var wr = r.width || W, hr = r.height || H;
+  return { x: (clientX - r.left) * (W / wr), y: (clientY - r.top) * (H / hr) };
+}
+function cellAt(x, y){
+  if (!gridRect || !P) return -1;
+  if (x < gridRect.x || y < gridRect.y || x >= gridRect.x + gridRect.w || y >= gridRect.y + gridRect.h) return -1;
+  var c = Math.floor((x - gridRect.x) / gridRect.cell);
+  var r = Math.floor((y - gridRect.y) / gridRect.cell);
+  if (c < 0 || c >= P.w || r < 0 || r >= P.h) return -1;
+  return r * P.w + c;
+}
+function swatchAt(x, y){
+  for (var i = 0; i < swatchPos.length; i++) {
+    var s = swatchPos[i], dx = x - s.x, dy = y - s.y;
+    if (dx * dx + dy * dy <= (s.r + 10) * (s.r + 10)) return s.n;
+  }
+  return 0;
+}
+function cardAt(x, y){
+  for (var i = 0; i < cards.length; i++) {
+    var c = cards[i];
+    if (x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h) return i;
+  }
+  return -1;
+}
+var dragging = false, lastIdx = -1;
+function press(x, y){
+  resumeAudio();
+  if (view === "gallery") {
+    var ci = cardAt(x, y);
+    if (ci >= 0) { beep(480, 0.06, "triangle", 0.07); openPicture(ci); }
+    return;
+  }
+  if (viewMode || revealT >= 0) return;
+  var s = swatchAt(x, y);
+  if (s > 0) {
+    if (selColor !== s) { selColor = s; beep(360, 0.045, "sine", 0.05); }
+    return;
+  }
+  var idx = cellAt(x, y);
+  if (idx >= 0) { dragging = true; lastIdx = idx; fillAt(idx); }
+}
+function move(x, y){
+  if (!dragging || view !== "paint") return;
+  var idx = cellAt(x, y);
+  if (idx >= 0 && idx !== lastIdx) { lastIdx = idx; fillAt(idx); } // lastIdx 去重：同格不重复处理
+}
+function release(){ dragging = false; lastIdx = -1; }
+
+canvas.addEventListener("mousedown", function(e){ var p = canvasPos(e.clientX, e.clientY); press(p.x, p.y); });
+canvas.addEventListener("mousemove", function(e){ if (!dragging) return; var p = canvasPos(e.clientX, e.clientY); move(p.x, p.y); });
+window.addEventListener("mouseup", release);
+canvas.addEventListener("touchstart", function(e){
+  e.preventDefault();
+  var t = e.changedTouches[0];
+  var p = canvasPos(t.clientX, t.clientY);
+  press(p.x, p.y);
+}, { passive: false });
+canvas.addEventListener("touchmove", function(e){
+  e.preventDefault();
+  var t = e.changedTouches[0];
+  var p = canvasPos(t.clientX, t.clientY);
+  move(p.x, p.y);
+}, { passive: false });
+canvas.addEventListener("touchend", function(e){ e.preventDefault(); release(); }, { passive: false });
+canvas.addEventListener("touchcancel", function(e){ e.preventDefault(); release(); }, { passive: false });
+
+document.addEventListener("keydown", function(e){
+  resumeAudio();
+  if (view === "paint") {
+    var n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 9 && swatchList.indexOf(n) >= 0) { selColor = n; beep(360, 0.045, "sine", 0.05); }
+    if (e.key === "Escape" || e.key === "Backspace") backToGallery();
+  }
+});
+
+/* ==================== 头部按钮 ==================== */
+var overlayEl = document.getElementById("overlay");
+var backBtn = document.getElementById("backBtn");
+var againBtn = document.getElementById("againBtn");
+var modeBtn = document.getElementById("modeBtn");
+var muteBtn = document.getElementById("muteBtn");
+var titleBox = document.getElementById("titleBox");
+var paintBox = document.getElementById("paintBox");
+var subtitle = document.getElementById("subtitle");
+var picName = document.getElementById("picName");
+var clockEl = document.getElementById("clock");
+var badgeEl = document.getElementById("badge");
+
+function refreshBadge(){
+  badgeEl.classList.toggle("hidden", !(view === "gallery" && allDone()));
+}
+function updateHeader(){
+  var gal = view === "gallery";
+  backBtn.classList.toggle("hidden", gal);
+  againBtn.classList.toggle("hidden", gal || !viewMode);
+  modeBtn.classList.toggle("hidden", gal || viewMode);
+  titleBox.classList.toggle("hidden", !gal);
+  paintBox.classList.toggle("hidden", gal);
+  subtitle.textContent = completedCount() + " of 12 painted";
+  if (!gal && cur >= 0) { picName.textContent = PICTURES[cur].name; updateClock(); }
+  modeBtn.textContent = "Mode: " + (store.mode === "strict" ? "Strict" : "Relax");
+  muteBtn.textContent = "Sound: " + (store.muted ? "Off" : "On");
+  refreshBadge();
+}
+backBtn.addEventListener("click", backToGallery);
+againBtn.addEventListener("click", paintAgain);
+modeBtn.addEventListener("click", function(){
+  store.mode = store.mode === "strict" ? "relax" : "strict";
+  saveStore();
+  updateHeader();
+  beep(500, 0.05, "sine", 0.06);
+});
+muteBtn.addEventListener("click", function(){
+  store.muted = !store.muted;
+  saveStore();
+  updateHeader();
+  if (!store.muted) beep(600, 0.06, "sine", 0.07);
+});
+document.getElementById("nextBtn").addEventListener("click", goNext);
+document.getElementById("galBtn").addEventListener("click", function(){ overlayEl.style.display = "none"; doneInfo = null; backToGallery(); });
+document.getElementById("copyBtn").addEventListener("click", function(){
+  var btn = document.getElementById("copyBtn");
+  var done = function(ok){
+    btn.textContent = ok ? "Copied!" : "Select the text to copy";
+    setTimeout(function(){ btn.textContent = "Copy share text"; }, 1600);
+  };
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(shareText).then(function(){ done(true); }, function(){ done(false); });
+    } else done(false);
+  } catch (e) { done(false); }
+});
+
+/* ==================== 启动 ==================== */
+makePaper();
+paperPat = ctx.createPattern(paper, "repeat");
+loadStore();
+refreshProg();
+resize();
+updateHeader();
+requestAnimationFrame(frame);
+
+// 离开页面时兜底保存进度
+document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "hidden") saveStore(); });
+window.addEventListener("pagehide", saveStore);
+
+// 调试/测试钩子（不影响游戏逻辑，供 node 烟雾测试与控制台检查用）
+window.__pp = {
+  openPicture: openPicture,
+  backToGallery: backToGallery,
+  paintAgain: paintAgain,
+  goNext: goNext,
+  fillAt: fillAt,
+  press: press,
+  move: move,
+  release: release,
+  select: function(n){ selColor = n; },
+  setMode: function(m){ store.mode = m === "strict" ? "strict" : "relax"; },
+  PICTURES: PICTURES,
+  store: store,
+  info: function(){
+    return {
+      view: view, cur: cur, remaining: remaining, totalNeed: totalNeed,
+      elapsed: elapsed, errors: errors, selColor: selColor,
+      revealT: revealT, viewMode: viewMode, fill: fill, need: need,
+      gridRect: gridRect, swatchPos: swatchPos,
+      overlayVisible: overlayEl.style.display === "flex",
+      completedCount: completedCount()
+    };
+  },
+  allDone: allDone
+};
+</script>
+</body>
+</html>
